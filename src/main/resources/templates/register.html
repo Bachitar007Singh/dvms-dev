@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitor Registration</title>
+    <link rel="stylesheet" href="/css/register.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/js/all.min.js"></script>
+    <style>
+        #statusMessage {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        .error-message {
+            color: red;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="banner">
+        <video autoplay loop muted plays-inline>
+            <source src="video1.mp4" type="video/mp4">
+        </video>
+        <div class="form-container">
+            <h2>Visitor Registration</h2>
+            <form id="visitorForm" action="/visitor/register" method="POST">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" name="name" placeholder="Name" required>
+                    <div id="nameError" class="error-message"></div>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-home"></i>
+                    <input type="text" name="address" placeholder="Address" required>
+                    <div id="addressError" class="error-message"></div>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-phone"></i>
+                    <input type="text" name="contact" placeholder="Contact Number" required>
+                    <div id="contactError" class="error-message"></div>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-building"></i>
+                    <select name="department" id="department" required>
+                        <option value="" disabled selected>Select Department</option>
+                        <option value="RBCET">RBCET</option>
+                        <option value="RBCP">RBCP</option>
+                        <option value="RBCN">RBCN</option>
+                        <option value="RBMI">RBMI</option>
+                        <option value="RBTTI">RBTTI</option>
+                    </select>
+                    <div id="departmentError" class="error-message"></div>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-user-friends"></i>
+                    <select name="meetWith" id="meetWith" required>
+                        <option value="" disabled selected>Select person to meet</option>
+                    </select>
+                    <div id="meetWithError" class="error-message"></div>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-key"></i>
+                    <input type="text" name="reason" placeholder="Reason for Visit" required>
+                    <div id="reasonError" class="error-message"></div>
+                </div>
+                <button type="submit">Register</button>
+            </form>
+            <div id="statusMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('visitorForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const formData = new FormData(this);
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = "Your request is being processed...";
+
+            // Clear previous error messages
+            document.querySelectorAll('.error-message').forEach(el => el.textContent = '');
+
+            fetch('/visitor/register', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errData => {
+                        throw new Error(JSON.stringify(errData));
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                const visitorId = data.visitorId;
+                console.log("Visitor ID received: " + visitorId);
+                statusDiv.textContent = "Your request has been sent for approval.";
+
+                console.log("Attempting to connect to WebSocket for visitorId: " + visitorId);
+                const socket = new WebSocket("ws://localhost:8080/visitor-status/" + visitorId);
+
+                socket.onopen = function(e) {
+                    console.log("[open] Connection established for visitorId: " + visitorId);
+                };
+
+                socket.onmessage = function(event) {
+                    console.log(`[message] Data received from server: ${event.data}`);
+                    statusDiv.textContent = event.data;
+                };
+
+                socket.onclose = function(event) {
+                    if (event.wasClean) {
+                        console.log(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+                    } else {
+                        console.error('[close] Connection died', event);
+                        console.log("Close event:", event);
+                    }
+                };
+
+                socket.onerror = function(error) {
+                    console.error(`[error] WebSocket error for visitorId: ${visitorId}`, error);
+                };
+
+                // Reset the form after 5 seconds
+                setTimeout(function() {
+                    document.getElementById('visitorForm').reset();
+                    statusDiv.textContent = ""; // Clear the status message
+                }, 5000);
+            })
+            .catch(error => {
+                console.error('Error during registration:', error);
+                try {
+                    const errorData = JSON.parse(error.message);
+                    if (errorData.errors) {
+                        errorData.errors.forEach(err => {
+                            const fieldId = err.field + 'Error';
+                            const errorElement = document.getElementById(fieldId);
+                            if (errorElement) {
+                                errorElement.textContent = err.defaultMessage;
+                            }
+                        });
+                    } else {
+                        statusDiv.textContent = "An error occurred. Please try again.";
+                    }
+                } catch (e) {
+                    statusDiv.textContent = "An error occurred. Please try again.";
+                }
+
+            });
+        });
+
+        document.getElementById('department').addEventListener('change', function() {
+            const selectedDepartment = this.value;
+            const meetWithSelect = document.getElementById('meetWith');
+            meetWithSelect.innerHTML = '<option value="" disabled selected>Select person to meet</option>';
+
+            if (selectedDepartment) {
+                fetch(`/admins/by-department?department=${selectedDepartment}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(usernames => {
+                        usernames.forEach(username => {
+                            const option = document.createElement('option');
+                            option.value = username;
+                            option.textContent = username;
+                            meetWithSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => {
+                        console.error("Error fetching admins:", error);
+                        // Optionally display an error message to the user
+                    });
+            }
+        });
+    </script>
+</body>
+
+</html>

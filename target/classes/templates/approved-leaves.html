@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Approved Leave Requests</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h2>Approved Leave Requests</h2>
+    <table th:if="${approvedLeaves != null and !approvedLeaves.isEmpty()}">
+        <thead>
+            <tr>
+                <th>Student Name</th>
+                <th>Student ID</th>
+                <th>Department</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Reason</th>
+                <th>Approved By Admin</th>
+                <th>Approved By Director</th>
+                <th>Request Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="leave : ${approvedLeaves}">
+                <td th:text="${leave.studentName}"></td>
+                <td th:text="${leave.studentId}"></td>
+                <td th:text="${leave.department}"></td>
+                <td th:text="${#dates.format(leave.startDate, 'yyyy-MM-dd')}"></td>
+                <td th:text="${#dates.format(leave.endDate, 'yyyy-MM-dd')}"></td>
+                <td th:text="${leave.reason}"></td>
+                <td th:text="${leave.adminApproval}"></td>
+                <td th:text="${leave.directorApproval}"></td>
+                <td th:text="${#temporals.format(leave.requestTime, 'yyyy-MM-dd HH:mm:ss')}"></td>
+            </tr>
+        </tbody>
+    </table>
+    <p th:unless="${approvedLeaves != null and !approvedLeaves.isEmpty()}">No approved leave requests.</p>
+    <a href="/admin/dashboard">Back to Dashboard</a>
+</body>
+</html>
