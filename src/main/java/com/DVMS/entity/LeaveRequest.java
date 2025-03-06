@@ -43,7 +43,7 @@ public class LeaveRequest {
         
        
      
-    
+    }
 
     public String getStudentId() {
         return studentId;
